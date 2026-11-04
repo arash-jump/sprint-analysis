@@ -1,0 +1,76 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
+use App\Models\CalculatedData;
+use App\Models\ManualData;
+
+class CalculatedDataController extends Controller
+{
+    private $calculated;
+
+    public function __construct(CalculatedData $calculated){
+        
+        $this->calculated = $calculated;
+    }
+
+    public function analysis($id){
+        $manual = ManualData::query()
+            ->where('user_id', Auth::id())
+            ->findOrFail($id);
+
+        $payload = [
+            'movie_path' => Storage::disk('local')->path($manual->movie),
+            'fps'        => $manual->fps,
+            'calibration_point' => $manual->calibration_point ? json_decode($manual->calibration_point, true): null,
+            'calibration_distance' => $manual->calibration_distance,
+            'run_distance' => $manual->run_distance,
+        ];
+
+        $json = json_encode($payload);
+
+        $pythonScriptPath = base_path('python/calculate.py');
+
+        $pythonBinary = base_path('venv/bin/python3');
+
+        $command = escapeshellarg($pythonBinary) . " " . escapeshellarg($pythonScriptPath) . " " . escapeshellarg($json) . " 2>&1";
+
+        $output = shell_exec($command);
+
+        
+
+        
+        if($output === null){
+            return back()->with('error', 'Failed to execute Python script.');
+        }
+
+        $lines = preg_split("/\r\n|\r|\n/", trim($output));
+        $jsonLine = end($lines);   
+
+        $result = json_decode($jsonLine, true);
+
+        if($result === null){
+            return back()->with('error', 'Invalid JSON returned from Python.');
+        }
+
+        $this->calculated->pixel_distance = $result['pixel_distance'];
+        $this->calculated->scale_m_per_px = $result['scale_m_per_px'];
+        $this->calculated->velocity_max   = $result['velocity_max'];
+        $this->calculated->velocity_avg   = $result['velocity_avg'];
+        $this->calculated->manual_id      = $id;
+        $this->calculated->user_id        = Auth::user()->id;
+
+        $this->calculated->raw_result = json_encode($result);
+
+        $this->calculated->save();
+
+        $calculated = $this->calculated;
+
+        return view('data.manual.analysis_result', [ 'manual' => $manual, 
+                                                     'result' => $result,
+                                                     'calculated' => $calculated]);
+    }
+}
