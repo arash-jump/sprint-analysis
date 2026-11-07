@@ -8,6 +8,9 @@
             <form action="{{route('manual.input_detail', $id)}}" class="w-75 mx-auto" enctype="multipart/form-data" method="post">
                 @csrf
             <h1 class="h2 my-5 text-primary"><i class="fa-solid fa-database"></i> Input Detailed Data</h1>
+                @if (session('error'))
+                    <div class="alert alert-danger" role="alert">{{ session('error') }}</div>
+                @endif
                 <div class="mb-3">
                     <label for="fps">Fps (Frames Per Second)</label>
                     <input type="number" class="form-control" name="fps" id="fps">
