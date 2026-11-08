@@ -65,6 +65,12 @@ python -m pip install -r requirements.txt
 deactivate
 ```
 
+Run the Python calculation tests with:
+
+```bash
+./venv/bin/python -m unittest discover -s python -p 'test_analysis_metrics.py'
+```
+
 ### 3. Build the frontend and start the application
 
 ```bash
@@ -93,6 +99,8 @@ Open <http://127.0.0.1:8000> in your browser and register or log in.
 | `resources/js/`, `resources/sass/` | Frontend assets built with Vite |
 | `public/js/`, `public/css/` | Static assets served directly to the browser |
 | `python/calculate.py` | Video analysis and velocity calculations |
+| `python/analysis_metrics.py` | Frame-based velocity and distance-segment calculations |
+| `python/test_analysis_metrics.py` | Unit tests for velocity calculations |
 | `requirements.txt` | Pinned direct Python dependencies for video analysis |
 | `routes/web.php` | Web routes |
 
@@ -101,6 +109,7 @@ Open <http://127.0.0.1:8000> in your browser and register or log in.
 - This project does not currently declare a license. Its source code is not granted additional reuse or redistribution permissions; third-party dependencies remain subject to their own licenses. MediaPipe is distributed under Apache License 2.0.
 - Do not commit `.env`, the SQLite database, uploaded videos, or the Python virtual environment to GitHub.
 - Uploaded videos are stored privately in `storage/app/private/movies/` and streamed only to their authenticated owner. If videos contain identifiable people, obtain their consent and handle the files responsibly.
+- Velocity is estimated from the horizontal movement of the MediaPipe right-hip landmark. Results depend on camera angle, calibration, and landmark detection quality.
 - Videos uploaded before this private-storage change may still be in `storage/app/public/movies/`. They are not served through the new private route. Move any videos you need to keep into `storage/app/private/movies/` and remove their public copies.
 - The analysis controller invokes `venv/bin/python3` relative to the project root. Running the app on Windows requires changing the interpreter path.
 - Direct Python dependencies are pinned in `requirements.txt`. Use Python 3.9 or later; compatible package versions may vary by Python version and platform.

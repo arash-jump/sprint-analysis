@@ -65,6 +65,12 @@ python -m pip install -r requirements.txt
 deactivate
 ```
 
+Pythonの計算テストは次のコマンドで実行できます。
+
+```bash
+./venv/bin/python -m unittest discover -s python -p 'test_analysis_metrics.py'
+```
+
 ### 3. フロントエンドの準備と起動
 
 ```bash
@@ -93,6 +99,8 @@ php artisan serve
 | `resources/js/`, `resources/sass/` | Viteでビルドするフロントエンド資材 |
 | `public/js/`, `public/css/` | ブラウザから直接読み込む静的ファイル |
 | `python/calculate.py` | 動画解析と速度計算 |
+| `python/analysis_metrics.py` | フレーム番号に基づく速度・区間計算 |
+| `python/test_analysis_metrics.py` | 速度計算のユニットテスト |
 | `requirements.txt` | 動画解析用Python直接依存パッケージのバージョン |
 | `routes/web.php` | Webページと処理のURL定義 |
 
@@ -101,6 +109,7 @@ php artisan serve
 - このプロジェクト自体のライセンスは設定していません。プロジェクトのソースコードについて、追加の利用・再配布許可を示すものではありません。依存ライブラリにはそれぞれのライセンスが適用され、MediaPipeはApache License 2.0で配布されています。
 - `.env`、SQLiteデータベース、アップロードした動画、Python仮想環境はローカル環境用です。GitHubには登録しないでください。
 - アップロード動画は非公開の`storage/app/private/movies/`に保存され、所有者本人の認証済みリクエストにのみ配信されます。実在する人物の動画を扱う場合は、本人の許可を得て適切に管理してください。
+- 速度はMediaPipeの右腰ランドマークの画面上の横移動から推定します。カメラ角度、校正、ランドマークの検出精度によって結果が変わります。
 - この非公開保存への変更より前にアップロードした動画は、`storage/app/public/movies/`に残っている可能性があります。新しい非公開ルートからは配信されません。引き続き必要な動画は`storage/app/private/movies/`へ移動し、公開領域のコピーを削除してください。
 - Python解析はプロジェクト直下の`venv/bin/python3`を実行します。Windowsで利用するには実行パスの変更が必要です。
 - Pythonの直接依存パッケージは`requirements.txt`でバージョンを固定しています。Python 3.9以上を使用してください。対応するパッケージバージョンはPythonのバージョンやOSによって異なる場合があります。

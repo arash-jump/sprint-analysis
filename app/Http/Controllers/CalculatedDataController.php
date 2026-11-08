@@ -52,8 +52,18 @@ class CalculatedDataController extends Controller
 
         $result = json_decode($jsonLine, true);
 
-        if($result === null){
+        if(!is_array($result)){
             return back()->with('error', 'Invalid JSON returned from Python.');
+        }
+
+        if(isset($result['error'])){
+            return back()->with('error', $result['error']);
+        }
+
+        foreach (['pixel_distance', 'scale_m_per_px', 'velocity_max', 'velocity_avg', 'segment_speeds'] as $key) {
+            if (!array_key_exists($key, $result)) {
+                return back()->with('error', 'Incomplete analysis result returned from Python.');
+            }
         }
 
         $this->calculated->pixel_distance = $result['pixel_distance'];
