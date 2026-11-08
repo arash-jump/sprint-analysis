@@ -5,8 +5,8 @@
 @section('content')
     <h1 class="h3 mx-auto my-3" style="width:960px;">Calibration</h1>
     <div class="wrapper">
-            <video id="video" width="960" height="540" class="mx-auto">
-                <source src="{{route('manual.video', $manual->id)}}" type="video/mp4">
+            <video id="video" width="960" height="540" class="mx-auto" controls playsinline preload="metadata">
+                <source src="{{route('manual.video', $manual->id)}}">
             </video>
             <canvas id="canvas" width="960" height="540"  class="mx-auto"></canvas>
             <script src="{{asset('js/calibration.js')}}"></script>

@@ -59,6 +59,13 @@ class ManualDataAuthorizationTest extends TestCase
         Storage::disk('local')->put($manual->movie, 'private video content');
 
         $this->actingAs($owner)
+            ->get(route('manual.calibration', $manual->id))
+            ->assertOk()
+            ->assertSee('<video id="video"', false)
+            ->assertSee('controls playsinline preload="metadata"', false)
+            ->assertSee(route('manual.video', $manual->id), false);
+
+        $this->actingAs($owner)
             ->get(route('manual.video', $manual->id))
             ->assertOk();
     }
