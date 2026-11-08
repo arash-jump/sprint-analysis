@@ -3,6 +3,7 @@
 @section('content')
 <div class="container">
     <h1 class="h3 mb-3">Confirming Training</h1>
+    <a class="btn btn-primary mb-3" href="{{ route('manual.input') }}">Upload a sprint video</a>
 
     <form action="" method="POST">
         @csrf
