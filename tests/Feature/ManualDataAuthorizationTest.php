@@ -4,10 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\ManualData;
 use App\Models\User;
+use App\Services\VideoTranscoder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
+use Mockery\MockInterface;
 use Tests\TestCase;
 
 class ManualDataAuthorizationTest extends TestCase
@@ -75,6 +77,12 @@ class ManualDataAuthorizationTest extends TestCase
         Storage::fake('local');
         Storage::fake('public');
         $user = User::factory()->create();
+        Storage::disk('local')->put('movies/test.mp4', 'private video content');
+        $this->mock(VideoTranscoder::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('transcode')
+                ->once()
+                ->andReturn('movies/test.mp4');
+        });
 
         $this->actingAs($user)
             ->post(route('manual.save'), [
