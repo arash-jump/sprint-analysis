@@ -3,11 +3,10 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
-use RuntimeException;
 use App\Models\ManualData;
+use App\Services\VideoTranscoder;
 
 class ManualDataController extends Controller
 {
@@ -23,7 +22,7 @@ class ManualDataController extends Controller
         return view('data.manual.input');
     }
 
-    public function save(Request $request){
+    public function save(Request $request, VideoTranscoder $videoTranscoder){
         $request->validate([
             'movie' => 'required|mimes:mp4,mov,avi,wmv,flv,hevc|max:80000',
         ]);
@@ -31,21 +30,10 @@ class ManualDataController extends Controller
         $manual = new ManualData();
         $manual->user_id = Auth::id();
 
-        $manual->movie = $this->saveMovie($request->file('movie'));
+        $manual->movie = $videoTranscoder->transcode($request->file('movie'));
 
         $manual->save();
         return redirect()->route('manual.calibration', $manual->id);
-    }
-
-    private function saveMovie(UploadedFile $movie): string
-    {
-        $path = $movie->store(self::LOCAL_STORAGE_FOLDER, 'local');
-
-        if ($path === false) {
-            throw new RuntimeException('Failed to store uploaded video.');
-        }
-
-        return $path;
     }
 
     public function calibration($id){

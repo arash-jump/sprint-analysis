@@ -28,6 +28,7 @@
 - PHP 8.2以上、Composer
 - Node.js、npm
 - Python 3、pip
+- H.264およびAACエンコーダーを含むFFmpeg
 
 ### 1. PHP依存関係と環境設定
 
@@ -55,7 +56,21 @@ php artisan migrate
 
 動画はLaravelの非公開ローカルディスクに保存するため、公開ストレージへのシンボリックリンクは不要です。
 
-### 2. Python解析環境
+### 2. FFmpegのインストール
+
+動画アップロード時にブラウザー互換性の高いH.264 MP4へ変換します。H.264とAACのエンコードに対応したFFmpegをインストールしてください。
+
+```bash
+# macOS（Homebrew）
+brew install ffmpeg
+
+# Debian/Ubuntu
+sudo apt install ffmpeg
+```
+
+FFmpegが`PATH`にない場合は、`.env`の`FFMPEG_BINARY`に実行ファイルのパスを設定してください。
+
+### 3. Python解析環境
 
 ```bash
 python3 -m venv venv
@@ -71,7 +86,7 @@ Pythonの計算テストは次のコマンドで実行できます。
 ./venv/bin/python -m unittest discover -s python -p 'test_analysis_metrics.py'
 ```
 
-### 3. フロントエンドの準備と起動
+### 4. フロントエンドの準備と起動
 
 ```bash
 npm install
@@ -109,6 +124,7 @@ php artisan serve
 - このプロジェクト自体のライセンスは設定していません。プロジェクトのソースコードについて、追加の利用・再配布許可を示すものではありません。依存ライブラリにはそれぞれのライセンスが適用され、MediaPipeはApache License 2.0で配布されています。
 - `.env`、SQLiteデータベース、アップロードした動画、Python仮想環境はローカル環境用です。GitHubには登録しないでください。
 - アップロード動画は非公開の`storage/app/private/movies/`に保存され、所有者本人の認証済みリクエストにのみ配信されます。実在する人物の動画を扱う場合は、本人の許可を得て適切に管理してください。
+- アップロードした動画は保存前にFFmpegでH.264/AACのMP4へ変換します。この変換機能の追加前にアップロードした動画をブラウザー互換形式にするには、再アップロードしてください。
 - 速度はMediaPipeの右腰ランドマークの画面上の横移動から推定します。カメラ角度、校正、ランドマークの検出精度によって結果が変わります。
 - この非公開保存への変更より前にアップロードした動画は、`storage/app/public/movies/`に残っている可能性があります。新しい非公開ルートからは配信されません。引き続き必要な動画は`storage/app/private/movies/`へ移動し、公開領域のコピーを削除してください。
 - Python解析はプロジェクト直下の`venv/bin/python3`を実行します。Windowsで利用するには実行パスの変更が必要です。

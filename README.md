@@ -24,6 +24,7 @@ A web application for analyzing sprint performance from video. Upload a video, m
 - PHP 8.2+ and Composer
 - Node.js and npm
 - Python 3 and pip
+- FFmpeg with the `libx264` and AAC encoders
 
 The instructions below are for macOS and Linux. The analysis controller expects the Python interpreter at `venv/bin/python3` in the project root, so create the virtual environment at that location.
 
@@ -55,7 +56,21 @@ php artisan migrate
 
 Uploaded videos are stored on Laravel's private local disk, so a public storage symlink is not needed.
 
-### 2. Set up the Python analysis environment
+### 2. Install FFmpeg
+
+Video uploads are converted to H.264 MP4 for browser compatibility. Install FFmpeg with H.264 and AAC encoding support:
+
+```bash
+# macOS with Homebrew
+brew install ffmpeg
+
+# Debian/Ubuntu
+sudo apt install ffmpeg
+```
+
+If FFmpeg is not on `PATH`, set `FFMPEG_BINARY` in `.env` to its executable path.
+
+### 3. Set up the Python analysis environment
 
 ```bash
 python3 -m venv venv
@@ -71,7 +86,7 @@ Run the Python calculation tests with:
 ./venv/bin/python -m unittest discover -s python -p 'test_analysis_metrics.py'
 ```
 
-### 3. Build the frontend and start the application
+### 4. Build the frontend and start the application
 
 ```bash
 npm install
@@ -109,6 +124,7 @@ Open <http://127.0.0.1:8000> in your browser and register or log in.
 - This project does not currently declare a license. Its source code is not granted additional reuse or redistribution permissions; third-party dependencies remain subject to their own licenses. MediaPipe is distributed under Apache License 2.0.
 - Do not commit `.env`, the SQLite database, uploaded videos, or the Python virtual environment to GitHub.
 - Uploaded videos are stored privately in `storage/app/private/movies/` and streamed only to their authenticated owner. If videos contain identifiable people, obtain their consent and handle the files responsibly.
+- Uploaded videos are converted to H.264/AAC MP4 using FFmpeg before they are stored. Videos uploaded before this conversion was added must be uploaded again to get a browser-compatible copy.
 - Velocity is estimated from the horizontal movement of the MediaPipe right-hip landmark. Results depend on camera angle, calibration, and landmark detection quality.
 - Videos uploaded before this private-storage change may still be in `storage/app/public/movies/`. They are not served through the new private route. Move any videos you need to keep into `storage/app/private/movies/` and remove their public copies.
 - The analysis controller invokes `venv/bin/python3` relative to the project root. Running the app on Windows requires changing the interpreter path.
