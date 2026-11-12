@@ -73,11 +73,17 @@ output=
 has_input=0
 has_video_codec=0
 has_audio_codec=0
+has_timestamp_passthrough=0
 previous=
 for argument do
     case "$argument" in
         libx264) has_video_codec=1 ;;
         aac) has_audio_codec=1 ;;
+        passthrough)
+            if [ "$previous" = "-fps_mode" ]; then
+                has_timestamp_passthrough=1
+            fi
+            ;;
     esac
     if [ "$previous" = "-i" ]; then
         has_input=1
@@ -85,7 +91,7 @@ for argument do
     previous=$argument
     output=$argument
 done
-[ "$has_input" -eq 1 ] && [ "$has_video_codec" -eq 1 ] && [ "$has_audio_codec" -eq 1 ] || exit 2
+[ "$has_input" -eq 1 ] && [ "$has_video_codec" -eq 1 ] && [ "$has_audio_codec" -eq 1 ] && [ "$has_timestamp_passthrough" -eq 1 ] || exit 2
 mkdir -p "$(dirname "$output")"
 printf 'converted video' > "$output"
 SH;

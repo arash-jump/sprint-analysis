@@ -73,13 +73,11 @@ class ManualDataController extends Controller
 
     public function input_detail(Request $request, $id){
         $request->validate([
-            'fps' => 'required|numeric|gt:0',
             'calibration_distance' => 'required|numeric|gt:0',
             'run_distance' => 'required|numeric|gt:0',
         ]);
         $manual = $this->findOwnedManual($id);
 
-        $manual->fps = $request->fps;
         $manual->calibration_distance = $request->calibration_distance;
         $manual->run_distance = $request->run_distance;
         

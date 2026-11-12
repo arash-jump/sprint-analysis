@@ -24,10 +24,9 @@ class CalculatedDataController extends Controller
 
         $payload = [
             'movie_path' => Storage::disk('local')->path($manual->movie),
-            'fps'        => $manual->fps,
+            'ffprobe_binary' => config('services.ffprobe.binary', 'ffprobe'),
             'calibration_point' => $manual->calibration_point ? json_decode($manual->calibration_point, true): null,
             'calibration_distance' => $manual->calibration_distance,
-            'run_distance' => $manual->run_distance,
         ];
 
         $json = json_encode($payload);
@@ -57,10 +56,26 @@ class CalculatedDataController extends Controller
         }
 
         if(isset($result['error'])){
+            if (isset($result['frame_diagnostics']) && is_array($result['frame_diagnostics'])) {
+                return view('data.manual.analysis_diagnostics', [
+                    'manual' => $manual,
+                    'error' => $result['error'],
+                    'result' => $result,
+                ]);
+            }
+
             return back()->with('error', $result['error']);
         }
 
-        foreach (['pixel_distance', 'scale_m_per_px', 'velocity_max', 'velocity_avg', 'segment_speeds'] as $key) {
+        foreach ([
+            'pixel_distance',
+            'scale_m_per_px',
+            'velocity_max',
+            'velocity_avg',
+            'estimated_distance_m',
+            'analysis_duration_seconds',
+            'segment_speeds',
+        ] as $key) {
             if (!array_key_exists($key, $result)) {
                 return back()->with('error', 'Incomplete analysis result returned from Python.');
             }

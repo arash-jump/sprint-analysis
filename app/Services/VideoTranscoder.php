@@ -60,6 +60,8 @@ class VideoTranscoder
                 'avc1',
                 '-c:a',
                 'aac',
+                '-fps_mode',
+                'passthrough',
                 '-movflags',
                 '+faststart',
                 $outputPath,

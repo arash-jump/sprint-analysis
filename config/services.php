@@ -45,4 +45,8 @@ return [
         'binary' => env('FFMPEG_BINARY', 'ffmpeg'),
     ],
 
+    'ffprobe' => [
+        'binary' => env('FFPROBE_BINARY', 'ffprobe'),
+    ],
+
 ];

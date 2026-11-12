@@ -2,9 +2,9 @@
 
 ## Project and workflow
 
-This is a Laravel 12 sprint-video analysis app. Authenticated users upload videos; Laravel validates them and `VideoTranscoder` converts them with FFmpeg to H.264/AAC MP4 files on private storage. The calibration page records points in JavaScript. Users then enter FPS and distances; `CalculatedDataController` passes those values and the video path to `python/calculate.py`, which uses OpenCV and MediaPipe's right-hip horizontal position. `python/analysis_metrics.py` converts frame differences and pixel scale to velocity metrics, which Laravel saves and displays with a chart.
+This is a Laravel 12 sprint-video analysis app. Authenticated users upload videos; Laravel validates them and `VideoTranscoder` converts them with FFmpeg to H.264/AAC MP4 files on private storage while preserving frame timestamps. The calibration page records points in the source video's pixel coordinates. Users enter a calibration distance and a reference run distance; no FPS is entered. `CalculatedDataController` passes the video path, calibration points, and calibration distance to `python/calculate.py`. Python uses FFprobe presentation timestamps and OpenCV/MediaPipe's right-hip horizontal position. `python/analysis_metrics.py` calculates timestamp-based velocity and 10 m distance segments, which Laravel saves and displays with a chart.
 
-The current calibration script scales canvas coordinates using fixed 1920×1080 values, while Python measures positions using each decoded frame's width. The current metric code uses the entered FPS and calibration distance; `run_distance` is passed through but does not limit the analysis, and distance segments default to 10 m.
+Calibration points are mapped from the displayed video size to the video's intrinsic dimensions; Python measures landmarks in decoded-frame pixels. `run_distance` is stored and displayed as reference information but does not affect the estimated distance or speed.
 
 ## Environment and commands
 
@@ -29,7 +29,7 @@ Run the configured Laravel tests, Python metric tests, and frontend build with:
 
 ```bash
 php artisan test
-./venv/bin/python -m unittest discover -s python -p 'test_analysis_metrics.py'
+./venv/bin/python -m unittest discover -s python -p 'test_*.py'
 npm run build
 ```
 
