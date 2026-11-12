@@ -12,22 +12,16 @@
                     <div class="alert alert-danger" role="alert">{{ session('error') }}</div>
                 @endif
                 <div class="mb-3">
-                    <label for="fps">Fps (Frames Per Second)</label>
-                    <input type="number" class="form-control" name="fps" id="fps">
-                    @error('fps')
-                        <p class="text-danger">{{$message}}</p>
-                    @enderror
-                </div>
-                <div class="mb-3">
-                    <label for="calibration_distance">Calibration Distance</label>
+                    <label for="calibration_distance">Calibration Distance (m)</label>
                     <input type="number" class="form-control" name="calibration_distance" id="calinration_distance" step="0.01">
                     @error('calibration_distance')
                         <p class="text-danger">{{$message}}</p>
                     @enderror
                 </div>
                 <div class="">
-                    <label for="run_distance">Run Distance</label>
+                    <label for="run_distance">Reference Run Distance (m)</label>
                     <input type="number" class="form-control" name="run_distance" id="run_distance" step="0.01">
+                    <small class="form-text text-muted">For reference only; it does not change or limit the video-based estimate.</small>
                     @error('run_distance')
                         <p class="text-danger">{{$message}}</p>
                     @enderror

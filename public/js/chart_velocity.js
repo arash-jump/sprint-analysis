@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', function() {
         data: {
             labels: labels,
             datasets: [{
-                label: 'Section Avg Velocity (m/s)',
+                label: 'Estimated horizontal speed by distance section (m/s)',
                 data: values,
                 borderColor: 'rgba(255, 99, 132, 0.6)',
             }]

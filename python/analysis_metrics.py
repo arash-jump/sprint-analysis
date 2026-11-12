@@ -1,56 +1,56 @@
 from math import floor
 from math import isfinite
-from typing import Optional
 
 
 def calculate_velocity_metrics(
-    positions: list[tuple[int, float]],
-    fps: float,
-    scale_m_per_px: Optional[float],
+    positions: list[tuple[float, float]],
+    scale_m_per_px: float,
     segment_length: float = 10.0,
 ) -> dict:
     if (
-        not isfinite(fps)
-        or fps <= 0
-        or scale_m_per_px is None
-        or not isfinite(scale_m_per_px)
+        not isfinite(scale_m_per_px)
         or scale_m_per_px <= 0
         or not isfinite(segment_length)
         or segment_length <= 0
     ):
-        return {
-            "velocity_max": 0.0,
-            "velocity_avg": 0.0,
-            "segment_speeds": [],
-        }
+        raise ValueError("Scale and segment length must be finite and greater than zero.")
+
+    if len(positions) < 2:
+        raise ValueError("At least two valid pose detections are required.")
 
     if any(
-        not isfinite(frame) or not isfinite(x)
-        for frame, x in positions
+        not isfinite(timestamp) or not isfinite(x)
+        for timestamp, x in positions
     ):
-        raise ValueError("Position frames and coordinates must be finite.")
+        raise ValueError("Position timestamps and coordinates must be finite.")
 
-    ordered_positions = sorted(positions, key=lambda position: position[0])
     total_distance = 0.0
     total_time = 0.0
     max_velocity = 0.0
     segment_times: dict[int, float] = {}
     segment_distances: dict[int, float] = {}
 
-    for (previous_frame, previous_x), (current_frame, current_x) in zip(
-        ordered_positions, ordered_positions[1:]
+    for (previous_time, previous_x), (current_time, current_x) in zip(
+        positions, positions[1:]
     ):
-        elapsed_time = (current_frame - previous_frame) / fps
-        distance = abs(current_x - previous_x) * scale_m_per_px
+        elapsed_time = current_time - previous_time
         if elapsed_time <= 0:
-            continue
+            raise ValueError("Position timestamps must be strictly increasing.")
 
+        distance = abs(current_x - previous_x) * scale_m_per_px
         velocity = distance / elapsed_time
-        max_velocity = max(max_velocity, velocity)
-        total_distance += distance
-        total_time += elapsed_time
+        if not all(isfinite(value) for value in (elapsed_time, distance, velocity)):
+            raise ValueError("Position interval metrics must be finite.")
 
-        traversed_distance = total_distance - distance
+        traversed_distance = total_distance
+        max_velocity = max(max_velocity, velocity)
+        next_total_distance = total_distance + distance
+        next_total_time = total_time + elapsed_time
+        if not isfinite(next_total_distance) or not isfinite(next_total_time):
+            raise ValueError("Total distance and duration must be finite.")
+        total_distance = next_total_distance
+        total_time = next_total_time
+
         if distance == 0:
             segment_index = floor(traversed_distance / segment_length)
             segment_times[segment_index] = (
@@ -77,18 +77,27 @@ def calculate_velocity_metrics(
             traversed_distance += distance_in_segment
             remaining_distance -= distance_in_segment
 
-    segment_speeds = [
-        {
-            "start": index * segment_length,
-            "end": (index + 1) * segment_length,
-            "avg_velocity": segment_distances[index] / segment_times[index],
-        }
-        for index in sorted(segment_distances)
-        if segment_times[index] > 0
-    ]
+    segment_speeds = []
+    for index in sorted(segment_distances):
+        segment_distance = segment_distances[index]
+        segment_time = segment_times[index]
+        if segment_distance <= 0 or segment_time <= 0:
+            continue
+
+        start = index * segment_length
+        segment_speeds.append({
+            "start": start,
+            "end": min(start + segment_length, total_distance),
+            "distance_m": segment_distance,
+            "duration_seconds": segment_time,
+            "avg_velocity": segment_distance / segment_time,
+        })
 
     return {
         "velocity_max": max_velocity,
         "velocity_avg": total_distance / total_time if total_time > 0 else 0.0,
+        "estimated_distance_m": total_distance,
+        "analysis_duration_seconds": positions[-1][0] - positions[0][0],
+        "movement_detected": total_distance > 0,
         "segment_speeds": segment_speeds,
     }

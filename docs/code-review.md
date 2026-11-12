@@ -13,12 +13,12 @@ Use this guide for local reviews of this repository. A review is read-only unles
 
 ## Measurement and analysis
 
-- Trace coordinates through the uploaded source, FFmpeg output, browser video display, canvas backing dimensions, saved calibration points, and OpenCV-decoded frames. Check scaling, aspect ratio, rotation, crop/padding, and coordinate bounds. The current calibration script uses fixed 1920×1080 scaling; Python uses the decoded frame width for the right-hip x-position.
-- Check video dimensions and time information before and after transcoding. The current FFmpeg command does not set an explicit output frame rate. The analysis uses the user-entered FPS with decoded frame-number differences; verify this agrees with the actual output timing, including variable-frame-rate or dropped-frame cases.
+- Trace coordinates through the uploaded source, FFmpeg output, browser video display, canvas backing dimensions, saved calibration points, and OpenCV-decoded frames. Check scaling, aspect ratio, rotation, crop/padding, and coordinate bounds. Calibration clicks are mapped to intrinsic video dimensions; Python measures the right-hip x-position in decoded-frame pixels.
+- Check video dimensions and time information before and after transcoding. FFmpeg uses timestamp passthrough and FFprobe supplies per-frame `best_effort_timestamp_time` for the converted video. Verify decoded-frame count/order agrees with the timestamp list, including variable-frame-rate inputs; do not infer constant frame rate from a reported FPS.
 - Verify units and definitions end to end: calibration coordinates are pixels, calibration distance is used to derive metres per pixel, and velocity is reported in metres per second. The current segment length defaults to 10 m.
-- Check missing pose detections, low landmark visibility, outliers, and coordinate jitter. The current script uses the right-hip landmark without a visibility threshold or smoothing; gaps between detected frames are timed by their frame-number difference.
+- Check missing pose detections, low landmark visibility, outliers, and coordinate jitter. The script uses the right-hip landmark without a visibility threshold or smoothing; elapsed time across missing detections comes from the timestamps of the adjacent valid detections. If fewer than two usable hip detections exist, analysis must fail and expose available per-frame diagnostics without saving a velocity result.
 - Check calibration-point count, numeric finiteness, bounds, and duplicate points at both request and analysis boundaries. The current request validates JSON syntax; Python reads the first two points and rejects non-finite or coincident coordinates.
-- Compare displayed distance segments with the actual measured range. Currently, segments follow accumulated horizontal displacement and the chart labels their start/end distances. `run_distance` is passed to Python and returned, but does not currently limit the metric calculation.
+- Compare displayed distance segments with the actual measured range. Segments follow accumulated horizontal displacement, end at the actual estimated distance, and the chart labels their start/end distances. `run_distance` is stored and displayed as a reference only; it is not passed to Python and must not affect the metric calculation.
 - Trace each input field to its calculation and display. Do not assume a stored or displayed value affects the metrics.
 - Separate mathematical correctness from real-video estimation accuracy: tests with synthetic positions can verify formulas, but cannot establish pose-detection accuracy for real footage or camera setups.
 
@@ -38,7 +38,7 @@ Use this guide for local reviews of this repository. A review is read-only unles
 
   ```bash
   php artisan test
-  ./venv/bin/python -m unittest discover -s python -p 'test_analysis_metrics.py'
+  ./venv/bin/python -m unittest discover -s python -p 'test_*.py'
   npm run build
   ```
 
