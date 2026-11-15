@@ -27,3 +27,4 @@ Thumbs.db
 /database/*.sqlite-*
 /storage/app/public/movies/
 /storage/app/private/movies/
+/storage/app/private/pose-diagnostics/

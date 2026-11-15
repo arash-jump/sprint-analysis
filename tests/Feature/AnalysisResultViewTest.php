@@ -61,6 +61,8 @@ class AnalysisResultViewTest extends TestCase
                 'velocity_avg' => 3.5,
                 'velocity_max' => 4.2,
                 'detection_count' => 1,
+                'pose_detection_count' => 1,
+                'accepted_point_count' => 1,
                 'frame_count' => 2,
                 'landmark_used' => 'right_hip',
                 'segment_speeds' => [],
@@ -69,6 +71,8 @@ class AnalysisResultViewTest extends TestCase
                         'frame_number' => 1,
                         'timestamp_seconds' => 0.0,
                         'pose_detected' => true,
+                        'calculation_accepted' => true,
+                        'rejection_reason' => null,
                         'landmark_x_px' => 100,
                         'landmark_y_px' => 60,
                         'landmark_visibility' => 0.9,
@@ -77,6 +81,8 @@ class AnalysisResultViewTest extends TestCase
                         'frame_number' => 2,
                         'timestamp_seconds' => 0.033,
                         'pose_detected' => false,
+                        'calculation_accepted' => false,
+                        'rejection_reason' => 'pose_not_detected',
                         'landmark_x_px' => null,
                         'landmark_y_px' => null,
                         'landmark_visibility' => null,
@@ -86,12 +92,14 @@ class AnalysisResultViewTest extends TestCase
         ])->render();
 
         $this->assertStringContainsString('Pose Detection Diagnostics', $html);
-        $this->assertStringContainsString('Usable right-hip detections in 1', $html);
+        $this->assertStringContainsString('Pose detected in 1', $html);
+        $this->assertStringContainsString('points were accepted for calculation.', $html);
         $this->assertStringContainsString('of 2 frames.', $html);
         $this->assertStringContainsString('100.00', $html);
         $this->assertStringContainsString('0.900', $html);
         $this->assertStringContainsString('0.033000', $html);
-        $this->assertStringContainsString('Right-hip visibility is shown for inspection only', $html);
+        $this->assertStringContainsString('Accepted', $html);
+        $this->assertStringContainsString('Rejection reason', $html);
     }
 
     public function test_insufficient_pose_result_renders_diagnostics_without_velocity_chart(): void
@@ -103,6 +111,18 @@ class AnalysisResultViewTest extends TestCase
             'manual' => $manual,
             'error' => 'The video did not contain enough detectable poses.',
             'result' => [
+                'analysis_status' => 'detection_quality_insufficient',
+                'pose_detection_count' => 1,
+                'pose_detection_rate' => 0.5,
+                'accepted_point_count' => 1,
+                'accepted_point_rate' => 0.5,
+                'first_accepted_timestamp_seconds' => 0.033,
+                'last_accepted_timestamp_seconds' => 0.033,
+                'maximum_gap_between_accepted_points_seconds' => null,
+                'maximum_missing_interval_seconds' => 0.033,
+                'missing_intervals' => [],
+                'quality_thresholds' => [],
+                'quality_checks' => [],
                 'frame_count' => 2,
                 'detection_count' => 1,
                 'landmark_used' => 'right_hip',
