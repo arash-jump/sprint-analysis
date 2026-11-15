@@ -115,8 +115,14 @@ Open <http://127.0.0.1:8000> in your browser and register or log in.
 | `resources/js/`, `resources/sass/` | Frontend assets built with Vite |
 | `public/js/`, `public/css/` | Static assets served directly to the browser |
 | `python/calculate.py` | Video analysis and velocity calculations |
+| `python/analysis_quality.py` | Right-hip acceptance and operational detection-quality thresholds |
 | `python/analysis_metrics.py` | Timestamp- and pixel-distance-based velocity and segment calculations |
+| `python/pose_detection.py` | Shared MediaPipe settings, frame inference, ROI mapping, and pose overlays |
+| `python/diagnose_pose.py` | Local still-image diagnostics for full-frame and ROI comparisons |
 | `python/video_timestamps.py` | Reads per-frame timestamps with FFprobe |
+| `python/test_analysis_quality.py` | Unit tests for accepted landmarks, gaps, and quality status |
+| `python/test_pose_detection.py` | Unit tests for full-frame and ROI coordinate handling |
+| `python/test_diagnose_pose.py` | Unit tests for bounded representative-image selection |
 | `python/test_analysis_metrics.py` | Unit tests for velocity calculations |
 | `python/test_video_timestamps.py` | Unit tests for video timestamps |
 | `requirements.txt` | Pinned direct Python dependencies for video analysis |
@@ -130,9 +136,19 @@ Open <http://127.0.0.1:8000> in your browser and register or log in.
 - Uploaded videos are converted to H.264/AAC MP4 using FFmpeg before they are stored. Videos uploaded before this conversion was added must be uploaded again to get a browser-compatible copy.
 - Velocity is estimated from the horizontal movement of the MediaPipe right-hip landmark. Results depend on camera angle, calibration, and landmark detection quality.
 - Time is taken from FFprobe `best_effort_timestamp_time` for the converted MP4 that is analyzed. A reported FPS alone is not treated as proof of constant frame rate; elapsed time comes from the presentation timestamps of detected frames, including gaps between detections. Videos with missing, duplicate, or decreasing timestamps, or a mismatch between FFprobe and decoder frame counts, fail with an analysis error. Transcoding is configured to preserve frame timestamps, but real-video timing accuracy depends on the input and codecs.
-- Estimated distance is the accumulated absolute horizontal displacement of the right-hip landmark multiplied by the calibration scale (m/px). Average speed is that horizontal path distance divided by the time from the first to last valid detection. Maximum speed is the largest speed between adjacent valid detections, not an instantaneous peak. No smoothing or outlier rejection is applied.
+- Estimated distance is the accumulated absolute horizontal displacement of the right-hip landmark multiplied by the calibration scale (m/px). Average speed is that horizontal path distance divided by the time from the first to last accepted detection. Maximum speed is the largest speed between adjacent accepted detections, not an instantaneous peak. No additional application-level smoothing or outlier rejection is applied; the existing MediaPipe video-mode landmark smoothing setting remains enabled.
 - Distance sections follow accumulated horizontal path distance in 10 m intervals. When an observed interval crosses a section boundary, time is apportioned in proportion to distance, assuming constant speed within that interval. The final section ends at the actual estimated distance.
-- The result page's "Pose Detection Diagnostics" table shows each frame's timestamp, whether pose landmarks were detected, the right-hip image coordinates, and MediaPipe visibility. Visibility is diagnostic information only and is not used to filter detections.
+- A pose being detected means MediaPipe returned landmarks. A point being accepted means the right hip has finite normalized coordinates inside the original frame and visibility of at least `0.50`. Neither means the measurement is reliable.
+- Ordinary speed results are saved and displayed only when the operational quality checks pass: at least 4 accepted points, pose-detection and accepted-point rates of at least `70%`, and no accepted-point gap or missing interval longer than `0.50 s`. These are provisional operating thresholds, not scientifically validated accuracy limits. A pass is not a guarantee of correct person/landmark selection or measurement accuracy.
+- The result page's "Pose Detection Diagnostics" reports total frames, pose detections, accepted points, rates, accepted-point time span, largest gap, and intervals without accepted points (including video edges) with rejection reasons. The per-frame table distinguishes pose detection from calculation acceptance and records the reason when a point is rejected. Quality-insufficient analyses retain diagnostics but do not save or show a velocity result.
+- To create local representative frames, JSON summaries, and an ROI comparison from the converted video, use an empty output directory for each run:
+
+  ```bash
+  ./venv/bin/python python/diagnose_pose.py storage/app/private/movies/sprint.mp4 storage/app/private/pose-diagnostics/full-frame --start-seconds 1 --end-seconds 4
+  ./venv/bin/python python/diagnose_pose.py storage/app/private/movies/sprint.mp4 storage/app/private/pose-diagnostics/roi --start-seconds 1 --end-seconds 4 --roi 500,100,600,800
+  ```
+
+  Replace the example video path and ROI with the actual converted video and a rectangle measured in original-frame pixels. Start/end times are seconds from the first presentation timestamp. The command never changes the video, limits output to 20 images per run, and writes under private storage (ignored by Git). Compare the same interval in both reports. In each image, inspect the skeleton, red right-hip marker, frame/time/detection label, and visibility. Confirm the skeleton belongs to the intended athlete and the red point tracks the right hip; a higher detection rate alone is not evidence of better measurement.
 - The entered run distance is reference information only; it does not correct the estimated distance or stop analysis. Speeds use video playback time. Slow-motion or playback-rate-adjusted footage cannot be converted to real-world movement time or speed without separate capture-rate metadata.
 - Videos uploaded before this private-storage change may still be in `storage/app/public/movies/`. They are not served through the new private route. Move any videos you need to keep into `storage/app/private/movies/` and remove their public copies.
 - The analysis controller invokes `venv/bin/python3` relative to the project root. Running the app on Windows requires changing the interpreter path.

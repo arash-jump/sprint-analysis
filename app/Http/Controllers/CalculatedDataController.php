@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use App\Models\CalculatedData;
 use App\Models\ManualData;
+use App\Services\PoseAnalysisRunner;
 
 class CalculatedDataController extends Controller
 {
@@ -17,7 +18,7 @@ class CalculatedDataController extends Controller
         $this->calculated = $calculated;
     }
 
-    public function analysis($id){
+    public function analysis($id, PoseAnalysisRunner $analysisRunner){
         $manual = ManualData::query()
             ->where('user_id', Auth::id())
             ->findOrFail($id);
@@ -29,34 +30,18 @@ class CalculatedDataController extends Controller
             'calibration_distance' => $manual->calibration_distance,
         ];
 
-        $json = json_encode($payload);
-
-        $pythonScriptPath = base_path('python/calculate.py');
-
-        $pythonBinary = base_path('venv/bin/python3');
-
-        $command = escapeshellarg($pythonBinary) . " " . escapeshellarg($pythonScriptPath) . " " . escapeshellarg($json) . " 2>&1";
-
-        $output = shell_exec($command);
-
-        
-
-        
-        if($output === null){
-            return back()->with('error', 'Failed to execute Python script.');
-        }
-
-        $lines = preg_split("/\r\n|\r|\n/", trim($output));
-        $jsonLine = end($lines);   
-
-        $result = json_decode($jsonLine, true);
-
-        if(!is_array($result)){
-            return back()->with('error', 'Invalid JSON returned from Python.');
+        try {
+            $result = $analysisRunner->run($payload);
+        } catch (\RuntimeException $exception) {
+            return back()->with('error', $exception->getMessage());
         }
 
         if(isset($result['error'])){
-            if (isset($result['frame_diagnostics']) && is_array($result['frame_diagnostics'])) {
+            if (
+                ($result['analysis_status'] ?? null) === 'detection_quality_insufficient'
+                && isset($result['frame_diagnostics'])
+                && is_array($result['frame_diagnostics'])
+            ) {
                 return view('data.manual.analysis_diagnostics', [
                     'manual' => $manual,
                     'error' => $result['error'],
@@ -67,6 +52,10 @@ class CalculatedDataController extends Controller
             return back()->with('error', $result['error']);
         }
 
+        if (($result['analysis_status'] ?? null) !== 'quality_check_passed') {
+            return back()->with('error', 'Analysis did not pass the detection quality check.');
+        }
+
         foreach ([
             'pixel_distance',
             'scale_m_per_px',
@@ -75,6 +64,19 @@ class CalculatedDataController extends Controller
             'estimated_distance_m',
             'analysis_duration_seconds',
             'segment_speeds',
+            'frame_count',
+            'pose_detection_count',
+            'pose_detection_rate',
+            'accepted_point_count',
+            'accepted_point_rate',
+            'first_accepted_timestamp_seconds',
+            'last_accepted_timestamp_seconds',
+            'maximum_gap_between_accepted_points_seconds',
+            'maximum_missing_interval_seconds',
+            'missing_intervals',
+            'quality_checks',
+            'quality_thresholds',
+            'frame_diagnostics',
         ] as $key) {
             if (!array_key_exists($key, $result)) {
                 return back()->with('error', 'Incomplete analysis result returned from Python.');

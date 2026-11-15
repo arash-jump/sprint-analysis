@@ -3,14 +3,23 @@ import math
 import sys
 
 import cv2
-import mediapipe as mp
 
+from analysis_quality import assess_detection_quality, assess_right_hip
 from analysis_metrics import calculate_velocity_metrics
+from pose_detection import analyze_pose_frame, create_pose
 from video_timestamps import VideoTimestampError, read_frame_timestamps
 
 
-def emit_error(message: str, **details) -> int:
-    print(json.dumps({"error": message, **details}))
+def emit_error(
+    message: str,
+    analysis_status: str = "processing_error",
+    **details,
+) -> int:
+    print(json.dumps({
+        "analysis_status": analysis_status,
+        "error": message,
+        **details,
+    }, allow_nan=False))
     return 1
 
 
@@ -65,7 +74,7 @@ def main() -> int:
         cap.release()
         return emit_error("The video could not be opened.")
 
-    pose = mp.solutions.pose.Pose()
+    pose = create_pose()
     detected_positions: list[tuple[float, float]] = []
     frame_diagnostics = []
     frames_processed = 0
@@ -83,38 +92,29 @@ def main() -> int:
 
             timestamp = frame_timestamps[frames_processed] - frame_timestamps[0]
             frames_processed += 1
-            height, width = frame.shape[:2]
-            image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = pose.process(image_rgb)
+            pose_frame = analyze_pose_frame(pose, frame)
+            right_hip = pose_frame["right_hip"]
+            accepted, rejection_reason = assess_right_hip(right_hip)
+            if not pose_frame["pose_detected"]:
+                rejection_reason = "pose_not_detected"
             frame_diagnostic = {
                 "frame_number": frames_processed,
                 "timestamp_seconds": timestamp,
-                "pose_detected": bool(results.pose_landmarks),
-                "landmark_x_px": None,
-                "landmark_y_px": None,
-                "landmark_visibility": None,
-            }
-
-            if results.pose_landmarks:
-                right_hip = results.pose_landmarks.landmark[
-                    mp.solutions.pose.PoseLandmark.RIGHT_HIP.value
-                ]
-                x_position = right_hip.x * width
-                y_position = right_hip.y * height
-                visibility = getattr(right_hip, "visibility", None)
-                frame_diagnostic["landmark_x_px"] = (
-                    x_position if math.isfinite(x_position) else None
-                )
-                frame_diagnostic["landmark_y_px"] = (
-                    y_position if math.isfinite(y_position) else None
-                )
-                frame_diagnostic["landmark_visibility"] = (
-                    visibility
-                    if visibility is not None and math.isfinite(visibility)
+                "pose_detected": pose_frame["pose_detected"],
+                "landmark_x_px": right_hip["x_px"] if right_hip else None,
+                "landmark_y_px": right_hip["y_px"] if right_hip else None,
+                "landmark_visibility": (
+                    right_hip["visibility"]
+                    if right_hip
+                    and isinstance(right_hip["visibility"], (int, float))
+                    and math.isfinite(right_hip["visibility"])
                     else None
-                )
-                if math.isfinite(x_position):
-                    detected_positions.append((timestamp, x_position))
+                ),
+                "calculation_accepted": accepted,
+                "rejection_reason": rejection_reason,
+            }
+            if accepted:
+                detected_positions.append((timestamp, right_hip["x_px"]))
             frame_diagnostics.append(frame_diagnostic)
     finally:
         cap.release()
@@ -125,11 +125,12 @@ def main() -> int:
             "Decoded video frames do not match the available frame timestamps."
         )
 
-    if len(detected_positions) < 2:
+    quality = assess_detection_quality(frame_diagnostics)
+    if quality["analysis_status"] != "quality_check_passed":
         return emit_error(
-            "The video did not contain enough detectable poses.",
-            frame_count=frames_processed,
-            detection_count=len(detected_positions),
+            "Pose detection quality is insufficient for a sprint measurement.",
+            **quality,
+            detection_count=quality["accepted_point_count"],
             landmark_used="right_hip",
             frame_diagnostics=frame_diagnostics,
         )
@@ -143,12 +144,12 @@ def main() -> int:
         return emit_error(str(exception))
 
     result = {
+        **quality,
         "time_basis": "converted_video_presentation_timestamps",
         "calibration_distance": calibration_distance,
         "pixel_distance": pixel_distance,
         "scale_m_per_px": scale_m_per_px,
-        "frame_count": frames_processed,
-        "detection_count": len(detected_positions),
+        "detection_count": quality["accepted_point_count"],
         "landmark_used": "right_hip",
         "analysis_start_seconds": detected_positions[0][0],
         "analysis_end_seconds": detected_positions[-1][0],
@@ -156,7 +157,7 @@ def main() -> int:
         **metrics,
     }
 
-    print(json.dumps(result))
+    print(json.dumps(result, allow_nan=False))
     return 0
 
 
