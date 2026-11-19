@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use App\Models\ManualData;
 use App\Services\VideoTranscoder;
+use App\Services\VideoFrameTimeline;
 
 class ManualDataController extends Controller
 {
@@ -66,20 +68,89 @@ class ManualDataController extends Controller
     }
 
     public function detail($id){
-        $this->findOwnedManual($id);
+        $manual = $this->findOwnedManual($id);
 
-        return view('data.manual.input_detail', compact('id'));
+        return view('data.manual.input_detail', compact('manual'));
     }
 
-    public function input_detail(Request $request, $id){
-        $request->validate([
+    public function frameTimestamps($id, VideoFrameTimeline $timeline)
+    {
+        $manual = $this->findOwnedManual($id);
+        try {
+            $timestamps = $timeline->read(
+                Storage::disk('local')->path($manual->movie),
+                config('services.ffprobe.binary', 'ffprobe')
+            );
+        } catch (RuntimeException $exception) {
+            return response()->json(['error' => $exception->getMessage()], 503);
+        }
+
+        return response()->json([
+            'timestamps_seconds' => $timestamps,
+            'frame_count' => count($timestamps),
+        ]);
+    }
+
+    public function input_detail(
+        Request $request,
+        $id,
+        VideoFrameTimeline $timeline
+    ){
+        $validated = $request->validate([
             'calibration_distance' => 'required|numeric|gt:0',
             'run_distance' => 'required|numeric|gt:0',
+            'measurement_start_frame' => 'nullable|integer|min:1',
+            'measurement_end_frame' => 'nullable|integer|min:1',
+            'roi_enabled' => 'nullable|boolean',
+            'roi_x' => 'nullable|integer|min:0',
+            'roi_y' => 'nullable|integer|min:0',
+            'roi_width' => 'nullable|integer|min:1',
+            'roi_height' => 'nullable|integer|min:1',
         ]);
         $manual = $this->findOwnedManual($id);
+        try {
+            $timestamps = $timeline->read(
+                Storage::disk('local')->path($manual->movie),
+                config('services.ffprobe.binary', 'ffprobe')
+            );
+        } catch (RuntimeException $exception) {
+            return back()->with('error', $exception->getMessage())->withInput();
+        }
+        $startFrame = (int) ($validated['measurement_start_frame'] ?? 1);
+        $endFrame = (int) ($validated['measurement_end_frame'] ?? count($timestamps));
+
+        if (
+            $startFrame > $endFrame
+            || $endFrame > count($timestamps)
+        ) {
+            return back()->withErrors([
+                'measurement_start_frame' => 'Choose an inclusive frame range within the video.',
+                'measurement_end_frame' => 'Choose an inclusive frame range within the video.',
+            ])->withInput();
+        }
+
+        $roi = null;
+        if ($request->boolean('roi_enabled')) {
+            foreach (['roi_x', 'roi_y', 'roi_width', 'roi_height'] as $field) {
+                if (! array_key_exists($field, $validated)) {
+                    return back()->withErrors([
+                        $field => 'Draw a valid ROI on the video or turn ROI off.',
+                    ])->withInput();
+                }
+            }
+            $roi = [
+                'x' => (int) $validated['roi_x'],
+                'y' => (int) $validated['roi_y'],
+                'width' => (int) $validated['roi_width'],
+                'height' => (int) $validated['roi_height'],
+            ];
+        }
 
         $manual->calibration_distance = $request->calibration_distance;
         $manual->run_distance = $request->run_distance;
+        $manual->measurement_start_frame = $startFrame;
+        $manual->measurement_end_frame = $endFrame;
+        $manual->analysis_roi = $roi;
         
         $manual->save();
 

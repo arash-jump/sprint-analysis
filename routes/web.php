@@ -18,6 +18,7 @@ Auth::routes();
                     Route::post('/save', [ManualDataController::class, 'save'])->name('save');
                     Route::get('/{id}/calibration', [ManualDataController::class, 'calibration'])->name('calibration');
                     Route::get('/{id}/video', [ManualDataController::class, 'video'])->name('video');
+                    Route::get('/{id}/frame-timestamps', [ManualDataController::class, 'frameTimestamps'])->name('frame_timestamps');
                     Route::post('/{id}/add/point',[ManualDataController::class, 'add_point'])->name('add_point');
                     Route::get('/{id}/detail', [ManualDataController::class, 'detail'])->name('detail');
                     Route::post('/{id}/input/detail', [ManualDataController::class, 'input_detail'])->name('input_detail');

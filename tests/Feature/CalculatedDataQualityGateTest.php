@@ -84,6 +84,14 @@ class CalculatedDataQualityGateTest extends TestCase
         $manual->calibration_distance = 10;
         $manual->calibration_point = '[{"x":0,"y":0},{"x":100,"y":0}]';
         $manual->run_distance = 10;
+        $manual->measurement_start_frame = 2;
+        $manual->measurement_end_frame = 4;
+        $manual->analysis_roi = [
+            'x' => 100,
+            'y' => 50,
+            'width' => 500,
+            'height' => 200,
+        ];
         $manual->save();
 
         $result = [
@@ -95,12 +103,12 @@ class CalculatedDataQualityGateTest extends TestCase
             'estimated_distance_m' => 0.9,
             'analysis_duration_seconds' => 0.3,
             'segment_speeds' => [],
-            'frame_count' => 4,
-            'pose_detection_count' => 4,
+            'frame_count' => 3,
+            'pose_detection_count' => 3,
             'pose_detection_rate' => 1,
-            'accepted_point_count' => 4,
+            'accepted_point_count' => 3,
             'accepted_point_rate' => 1,
-            'first_accepted_timestamp_seconds' => 0,
+            'first_accepted_timestamp_seconds' => 0.1,
             'last_accepted_timestamp_seconds' => 0.3,
             'maximum_gap_between_accepted_points_seconds' => 0.1,
             'maximum_missing_interval_seconds' => 0,
@@ -109,9 +117,31 @@ class CalculatedDataQualityGateTest extends TestCase
             'quality_thresholds' => [],
             'frame_diagnostics' => [],
             'landmark_used' => 'right_hip',
+            'model_input_frame_count' => 4,
+            'measurement_interval' => [
+                'start_frame' => 2,
+                'end_frame' => 4,
+                'frame_count' => 3,
+                'start_timestamp_seconds' => 0.1,
+                'end_timestamp_seconds' => 0.3,
+                'boundaries_inclusive' => true,
+            ],
+            'roi' => ['x' => 100, 'y' => 50, 'width' => 500, 'height' => 200],
         ];
         $runner = Mockery::mock(PoseAnalysisRunner::class);
-        $runner->shouldReceive('run')->once()->andReturn($result);
+        $runner->shouldReceive('run')
+            ->once()
+            ->withArgs(function (array $payload): bool {
+                return $payload['measurement_start_frame'] === 2
+                    && $payload['measurement_end_frame'] === 4
+                    && $payload['roi'] === [
+                        'x' => 100,
+                        'y' => 50,
+                        'width' => 500,
+                        'height' => 200,
+                    ];
+            })
+            ->andReturn($result);
         $this->app->instance(PoseAnalysisRunner::class, $runner);
 
         $this->actingAs($user)
@@ -125,6 +155,13 @@ class CalculatedDataQualityGateTest extends TestCase
             'manual_id' => $manual->id,
             'user_id' => $user->id,
         ]);
+        $savedResult = json_decode(
+            CalculatedData::query()->where('manual_id', $manual->id)->firstOrFail()->raw_result,
+            true
+        );
+        $this->assertSame(2, $savedResult['measurement_interval']['start_frame']);
+        $this->assertSame(4, $savedResult['measurement_interval']['end_frame']);
+        $this->assertSame(100, $savedResult['roi']['x']);
     }
 
     private function insufficientResult(int $acceptedCount): array

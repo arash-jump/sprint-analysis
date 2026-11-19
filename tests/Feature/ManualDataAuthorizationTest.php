@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\ManualData;
 use App\Models\User;
 use App\Services\VideoTranscoder;
+use App\Services\VideoFrameTimeline;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Route;
@@ -25,6 +26,7 @@ class ManualDataAuthorizationTest extends TestCase
 
         $this->get(route('manual.calibration', $manual->id))->assertNotFound();
         $this->get(route('manual.video', $manual->id))->assertNotFound();
+        $this->get(route('manual.frame_timestamps', $manual->id))->assertNotFound();
         $this->get(route('manual.detail', $manual->id))->assertNotFound();
         $this->post(route('manual.add_point', $manual->id), [
             'calibration_point' => '[]',
@@ -70,6 +72,33 @@ class ManualDataAuthorizationTest extends TestCase
         $this->actingAs($owner)
             ->get(route('manual.video', $manual->id))
             ->assertOk();
+    }
+
+    public function test_only_the_owner_can_read_the_video_frame_timeline(): void
+    {
+        Storage::fake('local');
+        $owner = User::factory()->create();
+        $manual = $this->createManualData($owner);
+        $timeline = $this->mock(VideoFrameTimeline::class);
+        $timeline->shouldReceive('read')
+            ->once()
+            ->andReturn([0.0, 0.04, 0.12]);
+
+        $this->actingAs($owner)
+            ->get(route('manual.frame_timestamps', $manual->id))
+            ->assertOk()
+            ->assertJson([
+                'timestamps_seconds' => [0.0, 0.04, 0.12],
+                'frame_count' => 3,
+            ]);
+
+        $this->actingAs($owner)
+            ->get(route('manual.detail', $manual->id))
+            ->assertOk()
+            ->assertViewIs('data.manual.input_detail')
+            ->assertSee(route('manual.frame_timestamps', $manual->id), false)
+            ->assertSee('Start frame (inclusive)')
+            ->assertSee('End frame (inclusive)');
     }
 
     public function test_video_upload_saves_a_private_file_before_measurements_are_entered(): void

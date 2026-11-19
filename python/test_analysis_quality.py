@@ -133,6 +133,36 @@ class AssessDetectionQualityTest(unittest.TestCase):
         self.assertAlmostEqual(report["missing_intervals"][1]["end_seconds"], 0.6)
         self.assertTrue(report["missing_intervals"][1]["duration_estimated"])
 
+    def test_interval_quality_uses_selected_denominator_and_both_interval_edges(self):
+        full_video = [
+            frame(1, 0.0, True, True),
+            frame(2, 0.1, False, False),
+            frame(3, 0.2, True, True),
+            frame(4, 0.5, True, True),
+            frame(5, 0.6, True, True),
+            frame(6, 0.9, False, False),
+            frame(7, 1.0, True, True),
+        ]
+
+        report = assess_detection_quality(full_video[1:6])
+
+        self.assertEqual(report["frame_count"], 5)
+        self.assertEqual(report["pose_detection_count"], 3)
+        self.assertEqual(report["accepted_point_count"], 3)
+        self.assertAlmostEqual(report["pose_detection_rate"], 3 / 5)
+        self.assertAlmostEqual(report["accepted_point_rate"], 3 / 5)
+        self.assertEqual(
+            [
+                (gap["first_frame_number"], gap["last_frame_number"])
+                for gap in report["missing_intervals"]
+            ],
+            [(2, 2), (6, 6)],
+        )
+        self.assertAlmostEqual(report["missing_intervals"][0]["start_seconds"], 0.1)
+        self.assertAlmostEqual(report["missing_intervals"][0]["end_seconds"], 0.2)
+        self.assertAlmostEqual(report["missing_intervals"][1]["end_seconds"], 1.1)
+        self.assertTrue(report["missing_intervals"][1]["duration_estimated"])
+
 
 if __name__ == "__main__":
     unittest.main()

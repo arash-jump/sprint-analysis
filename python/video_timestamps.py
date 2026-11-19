@@ -1,6 +1,10 @@
+from __future__ import annotations
+
+import argparse
 import json
 import math
 import subprocess
+import sys
 
 
 class VideoTimestampError(ValueError):
@@ -61,9 +65,12 @@ def read_frame_timestamps(movie_path: str, ffprobe_binary: str) -> list[float]:
         raise VideoTimestampError(
             "Reading video timestamps timed out. Try a shorter video."
         ) from None
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as exception:
+        detail = " ".join((exception.stderr or "").split())[:400]
+        reason = f" FFprobe reported: {detail}" if detail else ""
         raise VideoTimestampError(
-            "Could not read timestamps from the converted video."
+            f"Could not read timestamps from the converted video "
+            f"(FFprobe exit code {exception.returncode}).{reason}"
         ) from None
     except OSError:
         raise VideoTimestampError(
@@ -71,3 +78,30 @@ def read_frame_timestamps(movie_path: str, ffprobe_binary: str) -> list[float]:
         ) from None
 
     return parse_frame_timestamps(process.stdout)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Print relative per-frame presentation timestamps as JSON."
+    )
+    parser.add_argument("movie_path")
+    parser.add_argument("ffprobe_binary", nargs="?", default="ffprobe")
+    args = parser.parse_args(argv)
+
+    try:
+        timestamps = read_frame_timestamps(args.movie_path, args.ffprobe_binary)
+    except VideoTimestampError as exception:
+        print(str(exception), file=sys.stderr)
+        return 1
+
+    first_timestamp = timestamps[0]
+    print(json.dumps({
+        "timestamps_seconds": [
+            timestamp - first_timestamp for timestamp in timestamps
+        ],
+    }, allow_nan=False))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

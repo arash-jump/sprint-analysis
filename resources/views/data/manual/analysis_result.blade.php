@@ -8,14 +8,35 @@
 
         <div class="bg-white shadow rounded p-4 mb-5">
             <h2 class="h5 text-secondary mb-3">Calculated Data</h2>
+            @if (isset($result['measurement_interval']))
+                <p>
+                    <strong>Measurement interval (both ends included):</strong>
+                    frames {{ $result['measurement_interval']['start_frame'] }}–{{ $result['measurement_interval']['end_frame'] }}
+                    ({{ number_format((float) $result['measurement_interval']['start_timestamp_seconds'], 6) }}–{{ number_format((float) $result['measurement_interval']['end_timestamp_seconds'], 6) }} s)
+                </p>
+                <p>
+                    <strong>Pose input:</strong>
+                    model processed frames 1–{{ $result['model_input_frame_count'] }} in order;
+                    frames before the interval are excluded from measurement.
+                </p>
+                <p>
+                    <strong>ROI:</strong>
+                    @if (is_array($result['roi']))
+                        x={{ $result['roi']['x'] }}, y={{ $result['roi']['y'] }},
+                        width={{ $result['roi']['width'] }}, height={{ $result['roi']['height'] }} px
+                    @else
+                        Full frame (no ROI)
+                    @endif
+                </p>
+            @endif
             <ul>
                 <li><strong>Pixel Distance:</strong> {{ $result['pixel_distance'] ?? $calculated->pixel_distance}}</li>
                 <li><strong>Scale (m/px):</strong> {{ $result['scale_m_per_px'] ?? $calculated->scale_m_per_px}}</li>
                 <li><strong>Estimated horizontal path distance:</strong> {{ isset($result['estimated_distance_m']) ? number_format($result['estimated_distance_m'], 2).' m' : 'Unavailable for this saved result' }}</li>
-                <li><strong>Analysis duration (first to last detected pose):</strong> {{ isset($result['analysis_duration_seconds']) ? number_format($result['analysis_duration_seconds'], 2).' s' : 'Unavailable for this saved result' }}</li>
+                <li><strong>Analysis duration (first to last {{ isset($result['measurement_interval']) ? 'accepted point in the selected interval' : 'detected pose' }}):</strong> {{ isset($result['analysis_duration_seconds']) ? number_format($result['analysis_duration_seconds'], 2).' s' : 'Unavailable for this saved result' }}</li>
                 <li><strong>Horizontal movement detected:</strong> {{ isset($result['movement_detected']) ? ($result['movement_detected'] ? 'Yes' : 'No') : 'Unavailable for this saved result' }}</li>
-                <li><strong>Average speed (horizontal path distance / analysis duration):</strong> {{ number_format($result['velocity_avg'] ?? $calculated->velocity_avg, 2) }} m/s</li>
-                <li><strong>Maximum interval speed:</strong> {{ number_format($result['velocity_max'] ?? $calculated->velocity_max, 2) }} m/s</li>
+                <li><strong>Average speed{{ isset($result['measurement_interval']) ? ' within selected interval' : '' }} (horizontal path distance / analysis duration):</strong> {{ number_format($result['velocity_avg'] ?? $calculated->velocity_avg, 2) }} m/s</li>
+                <li><strong>Maximum interval speed{{ isset($result['measurement_interval']) ? ' within selected interval' : '' }}:</strong> {{ number_format($result['velocity_max'] ?? $calculated->velocity_max, 2) }} m/s</li>
                 <li><strong>Reference run distance (not used to adjust or stop the estimate):</strong> {{ number_format((float) $manual->run_distance, 2) }} m</li>
             </ul>
             <p class="text-muted mb-0">

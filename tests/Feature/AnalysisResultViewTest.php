@@ -35,9 +35,47 @@ class AnalysisResultViewTest extends TestCase
         ])->render();
 
         $this->assertStringContainsString('Unavailable for this saved result', $html);
+        $this->assertStringNotContainsString('Measurement interval', $html);
         $this->assertStringContainsString('3.50 m/s', $html);
         $this->assertStringContainsString('4.20 m/s', $html);
         $this->assertStringContainsString('0.00-10.00 m', $html);
+    }
+
+    public function test_selected_range_and_roi_are_shown_as_analysis_conditions(): void
+    {
+        $manual = new ManualData();
+        $manual->id = 5;
+        $manual->run_distance = 100;
+
+        $calculated = new CalculatedData();
+        $calculated->velocity_avg = 3.5;
+        $calculated->velocity_max = 4.2;
+
+        $html = view('data.manual.analysis_result', [
+            'manual' => $manual,
+            'calculated' => $calculated,
+            'result' => [
+                'analysis_status' => 'quality_check_passed',
+                'velocity_avg' => 3.5,
+                'velocity_max' => 4.2,
+                'segment_speeds' => [],
+                'model_input_frame_count' => 57,
+                'measurement_interval' => [
+                    'start_frame' => 28,
+                    'end_frame' => 57,
+                    'start_timestamp_seconds' => 0.9,
+                    'end_timestamp_seconds' => 1.866667,
+                    'boundaries_inclusive' => true,
+                ],
+                'roi' => ['x' => 350, 'y' => 300, 'width' => 1300, 'height' => 300],
+                'frame_diagnostics' => [],
+            ],
+        ])->render();
+
+        $this->assertStringContainsString('frames 28–57', $html);
+        $this->assertStringContainsString('x=350, y=300', $html);
+        $this->assertStringContainsString('within selected interval', $html);
+        $this->assertStringContainsString('Passing this operational check does not guarantee measurement accuracy', $html);
     }
 
     public function test_frame_diagnostics_render_detection_state_and_landmark_values(): void
