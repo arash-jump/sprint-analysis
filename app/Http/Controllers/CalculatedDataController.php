@@ -28,6 +28,9 @@ class CalculatedDataController extends Controller
             'ffprobe_binary' => config('services.ffprobe.binary', 'ffprobe'),
             'calibration_point' => $manual->calibration_point ? json_decode($manual->calibration_point, true): null,
             'calibration_distance' => $manual->calibration_distance,
+            'measurement_start_frame' => $manual->measurement_start_frame,
+            'measurement_end_frame' => $manual->measurement_end_frame,
+            'roi' => $manual->analysis_roi,
         ];
 
         try {
@@ -77,6 +80,8 @@ class CalculatedDataController extends Controller
             'quality_checks',
             'quality_thresholds',
             'frame_diagnostics',
+            'measurement_interval',
+            'roi',
         ] as $key) {
             if (!array_key_exists($key, $result)) {
                 return back()->with('error', 'Incomplete analysis result returned from Python.');

@@ -3,9 +3,12 @@
     <div class="bg-white shadow rounded p-4 mb-5">
         <h2 class="h5 text-secondary mb-3">Pose Detection Diagnostics</h2>
         <p>
-            @if (array_key_exists('pose_detection_count', $result))
-                Pose detected in {{ $result['pose_detection_count'] }}
-                of {{ $result['frame_count'] ?? count($result['frame_diagnostics']) }} frames.
+        @if (isset($result['measurement_interval']))
+            Quality rates cover the selected interval only. Model warm-up frames outside it are shown separately below.
+        @endif
+        @if (array_key_exists('pose_detection_count', $result))
+            Pose detected in {{ $result['pose_detection_count'] }}
+            of {{ $result['frame_count'] ?? count($result['frame_diagnostics']) }} {{ isset($result['measurement_interval']) ? 'measured ' : '' }}frames.
             @else
                 Legacy recorded calculation detections: {{ $result['detection_count'] ?? 0 }}.
                 Pose count and current quality checks were not recorded for this result.
@@ -24,6 +27,9 @@
                         <tr>
                             <th>Frame</th>
                             <th>Time since first frame (s)</th>
+                            @if (isset($result['measurement_interval']))
+                                <th>Measurement interval</th>
+                            @endif
                             <th>Pose detected</th>
                             <th>Accepted</th>
                             <th>Rejection reason</th>
@@ -37,6 +43,15 @@
                             <tr>
                                 <td>{{ $frame['frame_number'] }}</td>
                                 <td>{{ number_format((float) $frame['timestamp_seconds'], 6) }}</td>
+                                @if (isset($result['measurement_interval']))
+                                    <td>
+                                        @if ($frame['within_measurement_interval'] ?? false)
+                                            Included
+                                        @else
+                                            Model warm-up only
+                                        @endif
+                                    </td>
+                                @endif
                                 <td>{{ $frame['pose_detected'] ? 'Yes' : 'No' }}</td>
                                 <td>
                                     @if (array_key_exists('calculation_accepted', $frame))

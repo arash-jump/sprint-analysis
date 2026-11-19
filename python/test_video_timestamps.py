@@ -70,6 +70,21 @@ class VideoTimestampTest(unittest.TestCase):
         with self.assertRaisesRegex(VideoTimestampError, "timed out"):
             read_frame_timestamps("/private/video.mp4", "ffprobe")
 
+    @patch(
+        "video_timestamps.subprocess.run",
+        side_effect=subprocess.CalledProcessError(
+            1,
+            "ffprobe",
+            stderr="Invalid data found when processing input",
+        ),
+    )
+    def test_includes_ffprobe_failure_details(self, _run):
+        with self.assertRaisesRegex(
+            VideoTimestampError,
+            "exit code 1.*Invalid data found when processing input",
+        ):
+            read_frame_timestamps("/private/video.mp4", "ffprobe")
+
 
 if __name__ == "__main__":
     unittest.main()

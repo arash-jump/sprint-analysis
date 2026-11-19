@@ -8,8 +8,29 @@
     </div>
     <div class="bg-white shadow rounded p-4 mb-5">
         <h2 class="h5 text-secondary mb-3">Detection Quality Summary</h2>
+        @if (isset($result['measurement_interval']))
+            <p>
+                Quality rates and missing intervals below use only the selected measurement range.
+                Frames before its start were model warm-up inputs only.
+            </p>
+            <p>
+                Selected inclusive frames:
+                {{ $result['measurement_interval']['start_frame'] }}–{{ $result['measurement_interval']['end_frame'] }}
+                ({{ number_format((float) $result['measurement_interval']['start_timestamp_seconds'], 6) }}–{{ number_format((float) $result['measurement_interval']['end_timestamp_seconds'], 6) }} s).
+                ROI:
+                @if (is_array($result['roi'] ?? null))
+                    x={{ $result['roi']['x'] }}, y={{ $result['roi']['y'] }},
+                    width={{ $result['roi']['width'] }}, height={{ $result['roi']['height'] }} px.
+                @else
+                    full frame.
+                @endif
+            </p>
+        @endif
         <ul>
-            <li>Total frames: {{ $result['frame_count'] ?? 0 }}</li>
+            <li>Frames in quality assessment: {{ $result['frame_count'] ?? 0 }}</li>
+            @if (isset($result['model_input_frame_count']))
+                <li>Frames input to the model from the video start: {{ $result['model_input_frame_count'] }}</li>
+            @endif
             <li>
                 Pose detected: {{ $result['pose_detection_count'] ?? 0 }}
                 ({{ number_format((float) ($result['pose_detection_rate'] ?? 0) * 100, 1) }}%)
