@@ -2,7 +2,9 @@ import contextlib
 import io
 import json
 import sys
+import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -122,7 +124,11 @@ class CalculateInputTest(unittest.TestCase):
             patch.object(calculate.cv2, "VideoCapture", return_value=capture),
             patch.object(calculate, "create_pose", return_value=pose) as create_pose,
             patch.object(calculate, "analyze_pose_frame", side_effect=analyze),
-            patch.object(calculate, "assess_right_hip", return_value=(True, None)),
+            patch.object(
+                calculate,
+                "assess_right_hip",
+                side_effect=lambda landmark: (landmark is not None, None),
+            ),
         ):
             all_diagnostics, interval_diagnostics, positions = calculate.analyze_video(
                 "/private/video.mp4",
@@ -183,6 +189,67 @@ class CalculateInputTest(unittest.TestCase):
         self.assertEqual(len(diagnostics), 3)
         self.assertEqual([item["frame_number"] for item in interval_diagnostics], [2, 3])
         self.assertEqual(positions, [])
+
+    def test_pose_records_reuse_inference_landmarks_and_clear_undetected_frames(self):
+        frames = [object(), object()]
+        capture = FakeCapture(frames)
+        landmarks = [
+            {"x_px": float(index), "y_px": float(index + 10)}
+            for index in range(33)
+        ]
+        pose_frames = [
+            {
+                "pose_detected": True,
+                "right_hip": {
+                    "x_px": landmarks[24]["x_px"],
+                    "y_px": landmarks[24]["y_px"],
+                    "visibility": 0.9,
+                },
+                "landmarks": landmarks,
+            },
+            {"pose_detected": False, "right_hip": None, "landmarks": []},
+        ]
+        pose = Mock()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            records_path = f"{temp_dir}/poses.jsonl"
+            with (
+                patch.object(calculate.cv2, "VideoCapture", return_value=capture),
+                patch.object(calculate, "create_pose", return_value=pose),
+                patch.object(calculate, "analyze_pose_frame", side_effect=pose_frames),
+                patch.object(
+                    calculate,
+                    "assess_right_hip",
+                    side_effect=lambda landmark: (landmark is not None, None),
+                ),
+            ):
+                diagnostics, _interval, _positions = calculate.analyze_video(
+                    "/private/video.mp4",
+                    [0.0, 0.1],
+                    MeasurementFrameRange(2, 2, 2),
+                    (50, 20, 100, 50),
+                    records_path,
+                )
+
+            records = [
+                json.loads(line)
+                for line in Path(records_path)
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+
+        self.assertEqual(len(diagnostics), 2)
+        self.assertEqual(records[0]["landmarks"][24], [24.0, 34.0])
+        self.assertEqual(records[0]["roi"], {
+            "x": 50,
+            "y": 20,
+            "width": 100,
+            "height": 50,
+        })
+        self.assertFalse(records[0]["within_measurement_interval"])
+        self.assertFalse(records[0]["calculation_accepted"])
+        self.assertFalse(records[1]["pose_detected"])
+        self.assertEqual(records[1]["landmarks"], [])
 
     def test_short_selected_interval_fails_quality_without_speed_metrics(self):
         pose = Mock()

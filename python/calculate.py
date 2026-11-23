@@ -60,6 +60,7 @@ def analyze_video(
     frame_timestamps: list[float],
     frame_range: MeasurementFrameRange,
     roi: tuple[int, int, int, int] | None,
+    pose_landmarks_output_path: str | None = None,
 ) -> tuple[list[dict], list[dict], list[tuple[float, float]]]:
     cap = cv2.VideoCapture(movie_path)
     if not cap.isOpened():
@@ -71,6 +72,16 @@ def analyze_video(
     measurement_diagnostics = []
     detected_positions = []
     frames_processed = 0
+    landmark_records_file = None
+    if pose_landmarks_output_path is not None:
+        try:
+            landmark_records_file = open(
+                pose_landmarks_output_path,
+                "w",
+                encoding="utf-8",
+            )
+        except OSError:
+            pass
 
     try:
         while frames_processed < frame_range.end_frame:
@@ -115,6 +126,46 @@ def analyze_video(
                 ),
             }
             frame_diagnostics.append(diagnostic)
+            if landmark_records_file is not None:
+                record = {
+                    "frame_number": frame_number,
+                    "timestamp_seconds": timestamp,
+                    "pose_detected": pose_frame["pose_detected"],
+                    "within_measurement_interval": in_measurement_interval,
+                    "calculation_accepted": in_measurement_interval and accepted,
+                    "rejection_reason": diagnostic["rejection_reason"],
+                    "roi": (
+                        {
+                            "x": roi[0],
+                            "y": roi[1],
+                            "width": roi[2],
+                            "height": roi[3],
+                        }
+                        if roi is not None
+                        else None
+                    ),
+                    "landmarks": [
+                        [
+                            landmark["x_px"]
+                            if isinstance(landmark["x_px"], (int, float))
+                            and math.isfinite(landmark["x_px"])
+                            else None,
+                            landmark["y_px"]
+                            if isinstance(landmark["y_px"], (int, float))
+                            and math.isfinite(landmark["y_px"])
+                            else None,
+                        ]
+                        for landmark in pose_frame["landmarks"]
+                    ],
+                }
+                try:
+                    landmark_records_file.write(
+                        json.dumps(record, allow_nan=False, separators=(",", ":"))
+                        + "\n"
+                    )
+                except (OSError, TypeError, ValueError):
+                    landmark_records_file.close()
+                    landmark_records_file = None
             frames_processed += 1
 
             if in_measurement_interval:
@@ -124,6 +175,11 @@ def analyze_video(
     finally:
         cap.release()
         pose.close()
+        if landmark_records_file is not None:
+            try:
+                landmark_records_file.close()
+            except OSError:
+                pass
 
     return frame_diagnostics, measurement_diagnostics, detected_positions
 
@@ -139,6 +195,7 @@ def main() -> int:
 
         movie_path = payload["movie_path"]
         ffprobe_binary = payload["ffprobe_binary"]
+        pose_landmarks_output_path = payload.get("pose_landmarks_output_path")
         calibration_distance = float(payload["calibration_distance"])
         calibration_points = payload["calibration_point"]
         roi = parse_roi(payload.get("roi"))
@@ -147,6 +204,11 @@ def main() -> int:
             return emit_error("A video path is required.")
         if not isinstance(ffprobe_binary, str) or not ffprobe_binary:
             return emit_error("An FFprobe executable is required.")
+        if pose_landmarks_output_path is not None and (
+            not isinstance(pose_landmarks_output_path, str)
+            or not pose_landmarks_output_path
+        ):
+            return emit_error("The pose landmark output path is invalid.")
         if (
             not math.isfinite(calibration_distance)
             or calibration_distance <= 0
@@ -186,6 +248,7 @@ def main() -> int:
             frame_timestamps,
             frame_range,
             roi,
+            pose_landmarks_output_path,
         )
     except ValueError as exception:
         return emit_error(str(exception))

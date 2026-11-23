@@ -6,9 +6,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use App\Models\ManualData;
 use App\Services\VideoTranscoder;
 use App\Services\VideoFrameTimeline;
+use App\Services\PoseOverlayVideo;
 
 class ManualDataController extends Controller
 {
@@ -52,6 +54,20 @@ class ManualDataController extends Controller
         abort_unless($disk->exists($manual->movie), 404);
 
         return response()->file($disk->path($manual->movie));
+    }
+
+    public function posePreview($id, PoseOverlayVideo $poseOverlayVideo): BinaryFileResponse
+    {
+        $manual = $this->findOwnedManual($id);
+        $path = $manual->pose_preview_path;
+        abort_unless(is_string($path), 404);
+        $filePath = $poseOverlayVideo->filePath($path);
+        abort_unless($filePath !== null, 404);
+
+        return response()->file($filePath, [
+            'Content-Type' => 'video/mp4',
+            'Cache-Control' => 'private, no-store',
+        ]);
     }
 
     public function add_point(Request $request, $id){
