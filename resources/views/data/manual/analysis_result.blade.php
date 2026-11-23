@@ -46,6 +46,8 @@
             </p>
         </div>
 
+        @include('data.manual.partials.pose_review_video')
+
         @include('data.manual.partials.frame_diagnostics')
 
         <div class="bg-white shadow rouinded p-4 mb-5">

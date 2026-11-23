@@ -9,6 +9,8 @@
             {{ $error }} No velocity result was saved.
         </div>
 
+        @include('data.manual.partials.pose_review_video')
+
         @include('data.manual.partials.frame_diagnostics')
 
         <div class="bg-white shadow rounded p-4">

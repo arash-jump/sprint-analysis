@@ -74,6 +74,25 @@ class ManualDataAuthorizationTest extends TestCase
             ->assertOk();
     }
 
+    public function test_only_the_owner_can_stream_a_diagnostic_pose_preview(): void
+    {
+        Storage::fake('local');
+        $owner = User::factory()->create();
+        $manual = $this->createManualData($owner);
+        $manual->pose_preview_path = 'pose-previews/11111111-1111-4111-8111-111111111111.mp4';
+        $manual->save();
+        Storage::disk('local')->put($manual->pose_preview_path, 'private preview content');
+
+        $this->actingAs($owner)
+            ->get(route('manual.pose_preview', $manual->id))
+            ->assertOk()
+            ->assertHeader('content-type', 'video/mp4');
+
+        $this->actingAs(User::factory()->create())
+            ->get(route('manual.pose_preview', $manual->id))
+            ->assertNotFound();
+    }
+
     public function test_only_the_owner_can_read_the_video_frame_timeline(): void
     {
         Storage::fake('local');
